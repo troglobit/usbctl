@@ -1,0 +1,13 @@
+usbctl
+======================================================================
+
+A user space tool to operate on USB devices.
+
+Licensed under the GNU General Public License, version 2 or later,
+at your option.
+
+Written by Joachim Nilsson <jocke()vmlinux!org>
+
+Much of this was compiled from sources such as libusb, usbutils and
+usbview. All licensed under the GNU GPL and LGPL.
+

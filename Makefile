@@ -1,12 +1,12 @@
 # Builds usbctl and libs.
 # Heavy use of implicit rules.
-# Copyright (C) 2005 Joachim Nilsson <joachim.nilsson@vmlinux.org>
+# Copyright (C) 2005 Joachim Nilsson <jocke()vmlinux!org>
 # Free to use under the terms of the GNU General Public License.
 
 AR      = @ar
 ARFLAGS = crus
 
-CC      = @gcc
+CC      = @gcc-2.95
 CLAGS   = -g -fPIC
 CPPFLAGS= -Wall -I.
 LDFLAGS = -static -L.
