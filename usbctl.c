@@ -4,14 +4,83 @@
  * Test suite program shamelessly stolen from libusb.
  * Modified by Joachim Nilsson <jocke()vmlinux!org>
  *
- * $Id$
  */
 
+#ident "$Id$"
+
+#include <argp.h>
 #include <stdio.h>
 #include <string.h>
 #include <usb.h>
 
+const char *argp_program_version = "$Id$";
+const char *argp_program_bug_address = "<joachim.nilsson@afconsult.com>";
+
+static char doc[] =
+  "short program to show the use of argp\nThis program does little";
+
+static char args_doc[] = "COMMAND";
+
 int verbose = 0;
+
+/* initialise an argp_option struct with the options we except */
+static struct argp_option options[] =
+  {
+    {"verbose", 'v', 0,      0, "Produce verbose output" },
+    {"device",  'D', "PATH", 0, "Use this device, instead of $DEVICE" },
+    { 0 }
+  };
+
+/* Used by `main' to communicate with `parse_opt'. */
+struct arguments
+{
+  char *cmd[1];
+  int silent, verbose;
+  char *device_path;
+};
+
+/* Parse a single option. */
+static error_t
+parse_opt (int key, char *arg, struct argp_state *state)
+{
+  /* Get the INPUT argument from `argp_parse', which we
+     know is a pointer to our arguments structure. */
+  struct arguments *arguments = state->input;
+
+  switch (key)
+    {
+    case 'q': case 's':
+      arguments->silent = 1;
+      break;
+
+    case 'v':
+      arguments->verbose = 1;
+      break;
+
+    case 'D':
+      arguments->device_path = arg;
+      break;
+
+    case ARGP_KEY_ARG:
+      if (state->arg_num >= 1)
+        /* Too many arguments. */
+        argp_usage (state);
+
+      arguments->cmd[state->arg_num] = arg;
+
+      break;
+
+    case ARGP_KEY_END:
+      if (state->arg_num < 1)
+        /* Not enough arguments. */
+        argp_usage (state);
+      break;
+
+    default:
+      return ARGP_ERR_UNKNOWN;
+    }
+  return 0;
+}
 
 void print_endpoint(struct usb_endpoint_descriptor *endpoint)
 {
@@ -262,13 +331,24 @@ int do_usb_reset (struct usb_device *dev)
    }
 }
 
+/* Our argp parser. */
+static struct argp argp = { options, parse_opt, args_doc, doc };
 
-int main(int argc, char *argv[])
+int main (int argc, char **argv)
 {
+   int cmd, result;
    struct usb_device *list, *dev;
+   struct arguments arguments;
 
-   if (argc > 1 && !strcmp(argv[1], "-v"))
-      verbose = 1;
+   /* Default values. */
+   arguments.silent = 0;
+   arguments.verbose = 0;
+   arguments.device_path = getenv ("DEVICE");
+
+   /* Parse our arguments; every option seen by `parse_opt' will
+      be reflected in `arguments'. */
+   argp_parse (&argp, argc, argv, 0, 0, &arguments);
+   verbose = arguments.verbose;
 
    usb_init();
 
@@ -303,6 +383,6 @@ int main(int argc, char *argv[])
  * Local Variables:
  *  c-file-style: "ellemtel"
  *  indent-tabs-mode: nil
- *  compile-command: "gcc -o usbctl usbctl.c -L. -lnsl -lm -lc -lusb"
+ *  //compile-command: "gcc -o usbctl usbctl.c -L. -lnsl -lm -lc -lusb"
  * End:
  */
