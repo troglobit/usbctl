@@ -320,15 +320,26 @@ struct usb_device *find_devices (int vid, int pid, int did)
 int do_usb_reset (struct usb_device *dev)
 {
    int result = -1;
+   int bInterfaceNumber;
    usb_dev_handle *udev;
 
    udev = usb_open(dev);
    if (udev)
    {
+      bInterfaceNumber = dev->config->interface->altsetting[0].bInterfaceNumber;
+      //result = usb_claim_interface (udev, bInterfaceNumber);
+      result = 0;
+      if (result) goto exit;
+
+      printf ("Resetting!\n");
       result = usb_reset (udev);
 
+      //usb_release_interface (udev, bInterfaceNumber);
+     exit:
       usb_close(udev);
    }
+
+   return result;
 }
 
 /* Our argp parser. */
@@ -360,7 +371,6 @@ int main (int argc, char **argv)
    while (dev)
    {
       print_device (dev, 0);
-      printf ("Resetting!\n");
       if (do_usb_reset (dev))
       {
          perror ("Failed USB device reset");
@@ -383,6 +393,5 @@ int main (int argc, char **argv)
  * Local Variables:
  *  c-file-style: "ellemtel"
  *  indent-tabs-mode: nil
- *  //compile-command: "gcc -o usbctl usbctl.c -L. -lnsl -lm -lc -lusb"
  * End:
  */
