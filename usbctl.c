@@ -32,9 +32,9 @@ static char args_doc[] = "[SHOW|RESET|STATUS]";
 /* initialise an argp_option struct with the options we except */
 static struct argp_option options[] =
   {
-    {"verbose", 'v', 0,         0, "Produce verbose output" },
-    {"device",  'D', "PATH",    0, "Operate on this device, /proc/bus/usb/BBB/DDD ,instead of $DEVICE" },
-    {"find",    'd', "VID/PID", 0, "Operate on a list of devices matching VendorID/DeviceID"},
+    {"verbose", 'v', 0,           0, "Produce verbose output" },
+    {"device",  'D', "PATH",      0, "Operate on this device, /proc/bus/usb/BBB/DDD ,instead of $DEVICE" },
+    {"find",    'd', "VID[/PID]", 0, "Operate on a list of devices matching VendorID/DeviceID"},
     { 0 }
   };
 
@@ -386,7 +386,13 @@ struct usb_device *find_devices (int vid, int pid, int did)
 
      for (dev = bus->devices; dev; dev = dev->next)
      {
-        if (dev->descriptor.idVendor == vid && dev->descriptor.idProduct == pid)
+        /* Add if VID/PID matches dev, or
+         * if VID matches dev and PID is unset, or
+         * if both VID and PID are unset.
+         */
+        if ((dev->descriptor.idVendor == vid && dev->descriptor.idProduct == pid)
+            || (dev->descriptor.idVendor == vid && pid == 0)
+            || (vid == 0 && pid == 0))
         {
            list_add_clone (&head, dev);
         }
@@ -569,14 +575,16 @@ int main (int argc, char **argv)
    {
       list = locate_device (arg.path);
    }
-   else if (arg.vid)
+   else// if (arg.vid)
    {
       list = find_devices (arg.vid, arg.pid, 0);
    }
+#if 0
    else // (!arg.path && !arg.vid)
    {
       errx(EINVAL, "You must specify a device path or VID[/PID] device match.");
    }
+#endif
 
    switch (cmd)
    {
