@@ -1,13 +1,30 @@
-CC=@gcc
-CLAGS=-g
-LDFLAGS=-static -L.
-LDLIBS=-lnsl -lm -lc -lusb
+# Builds usbctl and libs.
+# Heavy use of implicit rules.
+# Copyright (C) 2005 Joachim Nilsson <joachim.nilsson@vmlinux.org>
+# Free to use under the terms of the GNU General Public License.
 
-APPS = usbctl
-OBJS = $(addsuffix .o, $(notdir $(APPS)))
+AR      = @ar
+ARFLAGS = crus
 
-all: $(APPS)
-	@upx -qqq $<
+CC      = @gcc
+CLAGS   = -g -fPIC
+CPPFLAGS= -Wall -I.
+LDFLAGS = -static -L.
+LDLIBS  = -lnsl -lm -lc -lusb -lusbctl
+
+RM      = @rm -f
+
+APPS    = usbctl
+LIBOBJS = usbmisc.o usbext.o
+LIB     = libusbctl
+LIBS    = $(addprefix $(LIB), .so .a)
+JUNK    = *~ semantic.cache $(APPS) $(LIBS)
+
+all: $(LIBS)($(LIBOBJS)) $(APPS)
+	@upx -qqq $(APPS)
+
+$(LIB).so: $(LIBOBJS)
+	$(CC) -shared $^ -o $@
 
 clean:
-	@$(RM) $(APPS) $(OBJS)
+	$(RM) $(JUNK)
