@@ -1,7 +1,10 @@
 /*
  * testlibusb.c
  *
- *  Test suite program
+ * Test suite program shamelessly stolen from libusb.
+ * Modified by Joachim Nilsson <jocke()vmlinux!org>
+ *
+ * $Id$
  */
 
 #include <stdio.h>
