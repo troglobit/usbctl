@@ -34,7 +34,7 @@
 
 
 const char *argp_program_version = "$Id$";
-const char *argp_program_bug_address = "<joachim.nilsson@afconsult.com>";
+const char *argp_program_bug_address = "<jocke()vmlinux!org>";
 
 static char doc[] =
   "short program to show the use of argp\nThis program does little";
@@ -148,25 +148,53 @@ parse_opt (int key, char *arg, struct argp_state *state)
 
 void print_endpoint(struct usb_endpoint_descriptor *endpoint)
 {
-  printf("      bEndpointAddress: %02xh\n", endpoint->bEndpointAddress);
-  printf("      bmAttributes:     %02xh\n", endpoint->bmAttributes);
-  printf("      wMaxPacketSize:   %d\n", endpoint->wMaxPacketSize);
-  printf("      bInterval:        %d\n", endpoint->bInterval);
-  printf("      bRefresh:         %d\n", endpoint->bRefresh);
-  printf("      bSynchAddress:    %d\n", endpoint->bSynchAddress);
+   static const char *typeattr[] = { "Control", "Isochronous", "Bulk", "Interrupt" };
+   static const char *syncattr[] = { "None", "Asynchronous", "Adaptive", "Synchronous" };
+   static const char *usage[] = { "Data", "Feedback", "Implicit feedback Data", "(reserved)" };
+   static const char *hb[] = { "1x", "2x", "3x", "(?\?)" };
+
+   printf ("    Endpoint Descriptor EP%u%s\n",
+           endpoint->bEndpointAddress & 0x0f,
+           (endpoint->bEndpointAddress & 0x80) ? "IN" : "OUT");
+   printf ("      bLength:          %5u\n", endpoint->bLength);
+   printf ("      bDescriptorType:  %5u\n", endpoint->bDescriptorType);
+   printf ("      bEndpointAddress:  0x%02X EP%u %s\n",
+           endpoint->bEndpointAddress,
+           endpoint->bEndpointAddress & 0x0f,
+           (endpoint->bEndpointAddress & 0x80) ? "IN" : "OUT");
+   printf ("      bmAttributes:      0x%02X\n"
+           "        Transfer Type:      %s\n"
+           "        Synch Type:         %s\n"
+           "        Usage Type:         %s\n",
+           endpoint->bmAttributes,
+           typeattr[endpoint->bmAttributes & 3],
+           syncattr[(endpoint->bmAttributes >> 2) & 3],
+           usage[(endpoint->bmAttributes >> 4) & 3]);
+   printf ("      wMaxPacketSize:  0x%04X %s %d bytes\n",
+           endpoint->wMaxPacketSize,
+           hb[(endpoint->wMaxPacketSize >> 11) & 3],
+           endpoint->wMaxPacketSize & 0x3ff);
+   printf ("      bInterval:        %5u ms\n", endpoint->bInterval);
+
+   /* only for audio endpoints */
+   if (endpoint->bLength == 9)
+   {
+      printf ("      bRefresh:         %5u\n", endpoint->bRefresh);
+      printf ("      bSynchAddress:    %5u\n", endpoint->bSynchAddress);
+   }
 }
 
 void print_altsetting(struct usb_interface_descriptor *interface)
 {
   int i;
 
-  printf("    bInterfaceNumber:   %d\n", interface->bInterfaceNumber);
-  printf("    bAlternateSetting:  %d\n", interface->bAlternateSetting);
-  printf("    bNumEndpoints:      %d\n", interface->bNumEndpoints);
-  printf("    bInterfaceClass:    %d\n", interface->bInterfaceClass);
-  printf("    bInterfaceSubClass: %d\n", interface->bInterfaceSubClass);
-  printf("    bInterfaceProtocol: %d\n", interface->bInterfaceProtocol);
-  printf("    iInterface:         %d\n", interface->iInterface);
+  printf("    bInterfaceNumber:   %5u\n", interface->bInterfaceNumber);
+  printf("    bAlternateSetting:  %5u\n", interface->bAlternateSetting);
+  printf("    bInterfaceClass:    %5u\n", interface->bInterfaceClass);
+  printf("    bInterfaceSubClass: %5u\n", interface->bInterfaceSubClass);
+  printf("    bInterfaceProtocol: %5u\n", interface->bInterfaceProtocol);
+  printf("    iInterface:         %5u\n", interface->iInterface);
+  printf("    bNumEndpoints:      %5u\n", interface->bNumEndpoints);
 
   for (i = 0; i < interface->bNumEndpoints; i++)
     print_endpoint(&interface->endpoint[i]);
@@ -184,12 +212,16 @@ void print_configuration(struct usb_config_descriptor *config)
 {
   int i;
 
-  printf("  wTotalLength:         %d\n", config->wTotalLength);
-  printf("  bNumInterfaces:       %d\n", config->bNumInterfaces);
-  printf("  bConfigurationValue:  %d\n", config->bConfigurationValue);
-  printf("  iConfiguration:       %d\n", config->iConfiguration);
-  printf("  bmAttributes:         %02xh\n", config->bmAttributes);
-  printf("  MaxPower:             %d\n", config->MaxPower);
+  printf("  wTotalLength:         %5u\n", config->wTotalLength);
+  printf("  bNumInterfaces:       %5u\n", config->bNumInterfaces);
+  printf("  bConfigurationValue:  %5u\n", config->bConfigurationValue);
+  printf("  iConfiguration:       %5u\n", config->iConfiguration);
+  printf("  bmAttributes:          0x%02X\n", config->bmAttributes);
+  if (config->bmAttributes & 0x40)
+     printf("      Self Powered\n");
+  if (config->bmAttributes & 0x20)
+     printf("      Remote Wakeup\n");
+  printf("  MaxPower:             %5u mA\n", config->MaxPower * 2);
 
   for (i = 0; i < config->bNumInterfaces; i++)
     print_interface(&config->interface[i]);
@@ -314,7 +346,7 @@ int print_device(struct usb_device *dev, int level, int verbose)
      if (dev->descriptor.iSerialNumber) {
         ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string, sizeof(string));
         if (ret > 0)
-           printf("%.*s  Serial Number:        %s\n", level * 2, "                    ", string);
+           printf("%.*s  Serial Number: %s\n", level * 2, "                    ", string);
      }
   }
 
@@ -473,15 +505,17 @@ int status (struct usb_device *list, int verbose)
       }
       else
       {
+         /* XXX - Only try this if there's actually a control ep available! */
          result = usb_control_msg(udev, USB_TYPE_VENDOR | USB_RECIP_DEVICE,
                                   USB_REQ_GET_STATUS, 0, 0, NULL, 0, 5000 );
          if (result)
             printf("usb_control_msg() returned %d (%s)\n", result, usb_strerror());
+#if 0
          result = usb_control_msg(udev, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN,
                                   USB_REQ_GET_STATUS, 0, 0, NULL, 0, 5000 );
          if (result)
             printf("usb_control_msg() returned %d (%s)\n", result, usb_strerror());
-
+#endif
          usb_release_device (udev);
       }
 
